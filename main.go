@@ -16,10 +16,6 @@ var ctx = context.Background()
 var redisClient *redis.Client = nil
 var logger = log.Default()
 
-func hello(w http.ResponseWriter, req *http.Request) {
-	io.WriteString(w, "hello from myFeatureToggles ;)\n")
-}
-
 func getToggles() (string, error) {
 	toggles, err := redisClient.HGetAll(ctx, "feature-toggles").Result()
 
@@ -61,6 +57,7 @@ func toggles(w http.ResponseWriter, req *http.Request) {
 	if redisClient == nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(w, "Redis cliente is not ready!")
+		return
 	}
 
 	switch req.Method {
@@ -105,7 +102,6 @@ func main() {
 
 	redisClient = createRedisClient()
 
-	http.HandleFunc("/hello", hello)
 	http.HandleFunc("/toggles", toggles)
 
 	logger.Println("running server on port " + port)
