@@ -3,42 +3,88 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
 	"os"
 
-	"github.com/go-redis/redis/v8"
+	redis "github.com/go-redis/redis/v8"
 )
 
 var ctx = context.Background()
 var redisClient *redis.Client = nil
+var logger = log.Default()
 
 func hello(w http.ResponseWriter, req *http.Request) {
 	io.WriteString(w, "hello from myFeatureToggles ;)\n")
 }
 
-func toggles(w http.ResponseWriter, req *http.Request) {
-	if redisClient == nil {
-		w.WriteHeader(500)
-		io.WriteString(w, "Redis cliente is not ready!")
-	}
-
+func getToggles() (string, error) {
 	toggles, err := redisClient.HGetAll(ctx, "feature-toggles").Result()
 
 	if err != nil {
-		w.WriteHeader(500)
-		io.WriteString(w, "Error trying to get feature-toggles: "+err.Error())
+		logger.Fatal("Error trying to get feature-toggles: " + err.Error())
+		return "", err
 	}
 
 	jsonMap, err := json.Marshal(toggles)
 
 	if err != nil {
-		w.WriteHeader(500)
-		io.WriteString(w, "Error marshaling feature-toggles: "+err.Error())
+		logger.Fatal("Error marshaling feature-toggles: " + err.Error())
+		return "", err
 	}
 
-	io.WriteString(w, string(jsonMap))
+	return string(jsonMap), nil
+}
+
+type Body struct {
+	Id    string `json:"id"`
+	Value string `json:"value"`
+}
+
+func createToogle(body io.ReadCloser) (error, int) {
+	defer body.Close()
+	var b Body
+	err := json.NewDecoder(body).Decode(&b)
+	if err != nil {
+		return err, http.StatusInternalServerError
+	}
+	if b.Id == "" || b.Value == "" {
+		return errors.New("Both 'id' and 'value' are required"), http.StatusBadRequest
+	}
+	_, err2 := redisClient.HSet(ctx, "feature-toggles", b.Id, b.Value).Result()
+	return err2, http.StatusInternalServerError
+}
+
+func toggles(w http.ResponseWriter, req *http.Request) {
+	if redisClient == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, "Redis cliente is not ready!")
+	}
+
+	switch req.Method {
+	case "GET":
+		toggles, err := getToggles()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			io.WriteString(w, err.Error())
+			return
+		}
+		io.WriteString(w, toggles)
+	case "PUT":
+		err, statusCode := createToogle(req.Body)
+		if err != nil {
+			w.WriteHeader(statusCode)
+			io.WriteString(w, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		io.WriteString(w, "Toggle created successfuly")
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		io.WriteString(w, "Method not allowed")
+	}
 }
 
 func createRedisClient() *redis.Client {
@@ -59,7 +105,6 @@ func main() {
 
 	redisClient = createRedisClient()
 
-	logger := log.Default()
 	http.HandleFunc("/hello", hello)
 	http.HandleFunc("/toggles", toggles)
 
