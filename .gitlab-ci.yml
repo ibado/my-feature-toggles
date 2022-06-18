@@ -5,7 +5,7 @@ variables:
 stages:
 - run test
 - build & push
-  #- deploy
+- deploy
 
 run_test:
   stage: run test
@@ -25,3 +25,12 @@ build_and_push:
   script:
     - docker build -t $IMAGE_NAME:$IMAGE_TAG .
     - docker push $IMAGE_NAME:$IMAGE_TAG
+
+deploy:
+  stage: deploy
+  image: ubuntu:20.04
+  before_script:
+    - apt update && apt install curl -y
+    - curl -fsSL https://railway.app/install.sh | sh
+  script:
+    - railway up
