@@ -4,20 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	redis "github.com/go-redis/redis/v8"
 )
+
+const TOGGLES_KEY = "feature-toggles"
 
 var ctx = context.Background()
 var redisClient *redis.Client = nil
 var logger = log.Default()
 
 func getToggles() (string, error) {
-	toggles, err := redisClient.HGetAll(ctx, "feature-toggles").Result()
+	toggles, err := redisClient.HGetAll(ctx, TOGGLES_KEY).Result()
 
 	if err != nil {
 		logger.Fatal("Error trying to get feature-toggles: " + err.Error())
@@ -49,8 +53,18 @@ func createToogle(body io.ReadCloser) (error, int) {
 	if b.Id == "" || b.Value == "" {
 		return errors.New("Both 'id' and 'value' are required"), http.StatusBadRequest
 	}
-	_, err2 := redisClient.HSet(ctx, "feature-toggles", b.Id, b.Value).Result()
+	_, err2 := redisClient.HSet(ctx, TOGGLES_KEY, b.Id, b.Value).Result()
 	return err2, http.StatusInternalServerError
+}
+
+func removeToggle(id string) error {
+	exist, _ := redisClient.HExists(ctx, TOGGLES_KEY, id).Result()
+	if !exist {
+		msg := fmt.Sprintf("the id '%s' doesn't match with an existing toggle", id)
+		return errors.New(msg)
+	}
+	err := redisClient.HDel(ctx, TOGGLES_KEY, id).Err()
+	return err
 }
 
 func toggles(w http.ResponseWriter, req *http.Request) {
@@ -78,6 +92,22 @@ func toggles(w http.ResponseWriter, req *http.Request) {
 		}
 		w.WriteHeader(http.StatusCreated)
 		io.WriteString(w, "Toggle created successfuly")
+	case "DELETE":
+		id := strings.Replace(req.URL.Path, "/toggles/", "", -1)
+
+		if len(id) == 0 || id == req.URL.Path {
+			w.WriteHeader(http.StatusBadRequest)
+			io.WriteString(w, "A valid id is required for removing a toggle")
+			return
+		}
+
+		err := removeToggle(id)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			io.WriteString(w, err.Error())
+			return
+		}
+		io.WriteString(w, "Toggle removed successfuly")
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		io.WriteString(w, "Method not allowed")
@@ -109,6 +139,7 @@ func main() {
 
 	http.HandleFunc("/health", health)
 	http.HandleFunc("/toggles", toggles)
+	http.HandleFunc("/toggles/", toggles)
 
 	logger.Println("running server on port " + port)
 	err := http.ListenAndServe(":"+port, nil)
