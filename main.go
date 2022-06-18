@@ -94,6 +94,11 @@ func createRedisClient() *redis.Client {
 	})
 }
 
+func health(w http.ResponseWriter, req *http.Request) {
+	status, _ := json.Marshal(map[string]string{"status": "healthy"})
+	w.Write(status)
+}
+
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -102,6 +107,7 @@ func main() {
 
 	redisClient = createRedisClient()
 
+	http.HandleFunc("/health", health)
 	http.HandleFunc("/toggles", toggles)
 
 	logger.Println("running server on port " + port)
