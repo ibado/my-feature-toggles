@@ -1,10 +1,5 @@
-variables:
-  IMAGE_NAME: ibado/my-feature-toggles
-  IMAGE_TAG: "1.0"
-
 stages:
 - run test
-- build & push
 - deploy
 
 run_test:
@@ -12,19 +7,6 @@ run_test:
   image: golang:1.18-stretch
   script:
     - go test -v
-
-build_and_push: 
-  stage: build & push
-  image: docker:20.10.16
-  services:
-    - docker:20.10.16-dind
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
-  before_script:
-    - echo "$DOCKER_PASS" | docker login --username $DOCKER_USER --password-stdin
-  script:
-    - docker build -t $IMAGE_NAME:$IMAGE_TAG .
-    - docker push $IMAGE_NAME:$IMAGE_TAG
 
 deploy:
   stage: deploy
