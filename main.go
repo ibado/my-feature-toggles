@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -20,57 +19,40 @@ var ctx = context.Background()
 var redisClient *redis.Client = nil
 var logger = log.Default()
 
-func getToggles() (string, error) {
+func getToggles() (map[string]string, error) {
 	toggles, err := redisClient.HGetAll(ctx, TOGGLES_KEY).Result()
 
 	if err != nil {
-		logger.Fatal("Error trying to get feature-toggles: " + err.Error())
-		return "", err
+		return map[string]string{}, err
 	}
 
-	jsonMap, err := json.Marshal(toggles)
-
-	if err != nil {
-		logger.Fatal("Error marshaling feature-toggles: " + err.Error())
-		return "", err
-	}
-
-	return string(jsonMap), nil
+	return toggles, nil
 }
 
-type Body struct {
+type Toggle struct {
 	Id    string `json:"id"`
 	Value string `json:"value"`
 }
 
-func createToogle(body io.ReadCloser) (error, int) {
-	defer body.Close()
-	var b Body
-	err := json.NewDecoder(body).Decode(&b)
-	if err != nil {
-		return err, http.StatusInternalServerError
-	}
-	if b.Id == "" || b.Value == "" {
-		return errors.New("Both 'id' and 'value' are required"), http.StatusBadRequest
-	}
-	_, err2 := redisClient.HSet(ctx, TOGGLES_KEY, b.Id, b.Value).Result()
-	return err2, http.StatusInternalServerError
+type Ups struct {
+	Msg string `json:"error"`
+}
+
+func createToogle(toggle Toggle) error {
+	return redisClient.HSet(ctx, TOGGLES_KEY, toggle.Id, toggle.Value).Err()
+}
+
+func toggleExist(id string) (bool, error) {
+	return redisClient.HExists(ctx, TOGGLES_KEY, id).Result()
 }
 
 func removeToggle(id string) error {
-	exist, _ := redisClient.HExists(ctx, TOGGLES_KEY, id).Result()
-	if !exist {
-		msg := fmt.Sprintf("the id '%s' doesn't match with an existing toggle", id)
-		return errors.New(msg)
-	}
-	err := redisClient.HDel(ctx, TOGGLES_KEY, id).Err()
-	return err
+	return redisClient.HDel(ctx, TOGGLES_KEY, id).Err()
 }
 
 func toggles(w http.ResponseWriter, req *http.Request) {
 	if redisClient == nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, "Redis cliente is not ready!")
+		errorResponse(errors.New("Redis cliente is not ready!"), w)
 		return
 	}
 
@@ -78,39 +60,54 @@ func toggles(w http.ResponseWriter, req *http.Request) {
 	case "GET":
 		toggles, err := getToggles()
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			io.WriteString(w, err.Error())
+			errorResponse(err, w)
 			return
 		}
-		io.WriteString(w, toggles)
+		jsonResponse(toggles, http.StatusOK, w)
 	case "PUT":
-		err, statusCode := createToogle(req.Body)
-		if err != nil {
-			w.WriteHeader(statusCode)
-			io.WriteString(w, err.Error())
+		defer req.Body.Close()
+		var toggle Toggle
+		err := json.NewDecoder(req.Body).Decode(&toggle)
+		if err != nil || toggle.Id == "" || toggle.Value == "" {
+			res := Ups{"Both 'id' and 'value' are required"}
+			jsonResponse(res, http.StatusBadRequest, w)
 			return
 		}
+		err = createToogle(toggle)
+		if err != nil {
+			errorResponse(err, w)
+			return
+		}
+
 		w.WriteHeader(http.StatusCreated)
-		io.WriteString(w, "Toggle created successfuly")
 	case "DELETE":
 		id := strings.Replace(req.URL.Path, "/toggles/", "", -1)
 
 		if len(id) == 0 || id == req.URL.Path {
-			w.WriteHeader(http.StatusBadRequest)
-			io.WriteString(w, "A valid id is required for removing a toggle")
+			res := Ups{"A valid id is required for removing a toggle"}
+			jsonResponse(res, http.StatusBadRequest, w)
 			return
 		}
 
-		err := removeToggle(id)
+		exist, err := toggleExist(id)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			io.WriteString(w, err.Error())
+			errorResponse(err, w)
 			return
 		}
-		io.WriteString(w, "Toggle removed successfuly")
+		if !exist {
+			msg := fmt.Sprintf("the id '%s' doesn't match with an existing toggle", id)
+			jsonResponse(Ups{msg}, http.StatusBadRequest, w)
+			return
+		}
+
+		err = removeToggle(id)
+		if err != nil {
+			errorResponse(err, w)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
 	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		io.WriteString(w, "Method not allowed")
+		jsonResponse(Ups{"Method not allowed"}, http.StatusMethodNotAllowed, w)
 	}
 }
 
@@ -125,8 +122,23 @@ func createRedisClient() *redis.Client {
 }
 
 func health(w http.ResponseWriter, req *http.Request) {
-	status, _ := json.Marshal(map[string]string{"status": "healthy"})
-	w.Write(status)
+	jsonResponse(map[string]string{"status": "healthy"}, http.StatusOK, w)
+}
+
+func errorResponse(err error, w http.ResponseWriter) {
+	logger.Println("Error: " + err.Error())
+	w.WriteHeader(http.StatusInternalServerError)
+}
+
+func jsonResponse(response any, statusCode int, w http.ResponseWriter) {
+	json, err := json.Marshal(response)
+	if err != nil {
+		errorResponse(err, w)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(statusCode)
+	w.Write(json)
 }
 
 func main() {
