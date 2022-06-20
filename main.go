@@ -19,6 +19,15 @@ var ctx = context.Background()
 var redisClient *redis.Client = nil
 var logger = log.Default()
 
+type Toggle struct {
+	Id    string `json:"id"`
+	Value string `json:"value"`
+}
+
+type Ups struct {
+	Msg string `json:"error"`
+}
+
 func getToggles() (map[string]string, error) {
 	toggles, err := redisClient.HGetAll(ctx, TOGGLES_KEY).Result()
 
@@ -27,15 +36,6 @@ func getToggles() (map[string]string, error) {
 	}
 
 	return toggles, nil
-}
-
-type Toggle struct {
-	Id    string `json:"id"`
-	Value string `json:"value"`
-}
-
-type Ups struct {
-	Msg string `json:"error"`
 }
 
 func createToogle(toggle Toggle) error {
@@ -111,16 +111,6 @@ func toggles(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func createRedisClient() *redis.Client {
-	url := os.Getenv("REDIS_ADDR")
-	pass := os.Getenv("REDIS_PASS")
-	return redis.NewClient(&redis.Options{
-		Addr:     url,
-		Password: pass,
-		DB:       0,
-	})
-}
-
 func health(w http.ResponseWriter, req *http.Request) {
 	jsonResponse(map[string]string{"status": "healthy"}, http.StatusOK, w)
 }
@@ -141,6 +131,16 @@ func jsonResponse(response any, statusCode int, w http.ResponseWriter) {
 	w.Write(json)
 }
 
+func createRedisClient() *redis.Client {
+	url := os.Getenv("REDIS_ADDR")
+	pass := os.Getenv("REDIS_PASS")
+	return redis.NewClient(&redis.Options{
+		Addr:     url,
+		Password: pass,
+		DB:       0,
+	})
+}
+
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -149,12 +149,14 @@ func main() {
 
 	redisClient = createRedisClient()
 
-	http.HandleFunc("/health", health)
-	http.HandleFunc("/toggles", toggles)
-	http.HandleFunc("/toggles/", toggles)
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/health", health)
+	mux.HandleFunc("/toggles", toggles)
+	mux.HandleFunc("/toggles/", toggles)
 
 	logger.Println("running server on port " + port)
-	err := http.ListenAndServe(":"+port, nil)
+	err := http.ListenAndServe(":"+port, mux)
 	if err != nil {
 		logger.Fatal(err)
 	}
