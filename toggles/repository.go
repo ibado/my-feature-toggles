@@ -24,13 +24,7 @@ func NewRepo(redisClient redis.Client) ToggleRepo {
 }
 
 func (r repo) GetAll(ctx context.Context) (map[string]string, error) {
-	toggles, err := r.redisClient.HGetAll(ctx, TOGGLES_KEY).Result()
-
-	if err != nil {
-		return map[string]string{}, err
-	}
-
-	return toggles, nil
+	return r.redisClient.HGetAll(ctx, TOGGLES_KEY).Result()
 }
 
 func (r repo) Add(ctx context.Context, id string, value string) error {
