@@ -10,10 +10,10 @@ import (
 	"os"
 	"strings"
 
+	"myfeaturetoggles.com/toggles/toggles"
+
 	redis "github.com/go-redis/redis/v8"
 )
-
-const TOGGLES_KEY = "feature-toggles"
 
 var ctx = context.Background()
 var redisClient *redis.Client = nil
@@ -28,37 +28,17 @@ type Ups struct {
 	Msg string `json:"error"`
 }
 
-func getToggles() (map[string]string, error) {
-	toggles, err := redisClient.HGetAll(ctx, TOGGLES_KEY).Result()
-
-	if err != nil {
-		return map[string]string{}, err
-	}
-
-	return toggles, nil
-}
-
-func createToogle(toggle Toggle) error {
-	return redisClient.HSet(ctx, TOGGLES_KEY, toggle.Id, toggle.Value).Err()
-}
-
-func toggleExist(id string) (bool, error) {
-	return redisClient.HExists(ctx, TOGGLES_KEY, id).Result()
-}
-
-func removeToggle(id string) error {
-	return redisClient.HDel(ctx, TOGGLES_KEY, id).Err()
-}
-
-func toggles(w http.ResponseWriter, req *http.Request) {
+func handleToggles(w http.ResponseWriter, req *http.Request) {
 	if redisClient == nil {
 		errorResponse(errors.New("Redis cliente is not ready!"), w)
 		return
 	}
 
+	repo := toggles.NewRepo(*redisClient)
+
 	switch req.Method {
 	case "GET":
-		toggles, err := getToggles()
+		toggles, err := repo.GetAll(ctx)
 		if err != nil {
 			errorResponse(err, w)
 			return
@@ -73,7 +53,7 @@ func toggles(w http.ResponseWriter, req *http.Request) {
 			jsonResponse(res, http.StatusBadRequest, w)
 			return
 		}
-		err = createToogle(toggle)
+		err = repo.Add(ctx, toggle.Id, toggle.Value)
 		if err != nil {
 			errorResponse(err, w)
 			return
@@ -89,7 +69,7 @@ func toggles(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		exist, err := toggleExist(id)
+		exist, err := repo.Exist(ctx, id)
 		if err != nil {
 			errorResponse(err, w)
 			return
@@ -100,7 +80,7 @@ func toggles(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		err = removeToggle(id)
+		err = repo.Remove(ctx, id)
 		if err != nil {
 			errorResponse(err, w)
 			return
@@ -152,8 +132,8 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", health)
-	mux.HandleFunc("/toggles", toggles)
-	mux.HandleFunc("/toggles/", toggles)
+	mux.HandleFunc("/toggles", handleToggles)
+	mux.HandleFunc("/toggles/", handleToggles)
 
 	logger.Println("running server on port " + port)
 	err := http.ListenAndServe(":"+port, mux)
