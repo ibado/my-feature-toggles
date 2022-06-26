@@ -16,10 +16,10 @@ type ToggleRepo interface {
 }
 
 type repo struct {
-	redisClient redis.Client
+	redisClient *redis.Client
 }
 
-func NewRepo(redisClient redis.Client) ToggleRepo {
+func NewRepo(redisClient *redis.Client) ToggleRepo {
 	return repo{redisClient}
 }
 
