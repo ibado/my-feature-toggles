@@ -23,9 +23,9 @@ run_server() {
 
 run_server
 
-inotifywait -e close_write -m . |
+inotifywait -r -e close_write -m . |
 while read -r directory events filename; do
-  if [ "$filename" = "main.go" ]; then
+  if [[ $filename == *\.go ]]; then
     echo "Changes detected!"  
     run_server
   fi
