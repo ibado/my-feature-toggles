@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 
 	"myfeaturetoggles.com/toggles/toggles"
+	"myfeaturetoggles.com/toggles/util"
 
 	redis "github.com/go-redis/redis/v8"
 )
@@ -17,23 +17,7 @@ var redisClient *redis.Client = nil
 var logger = log.Default()
 
 func health(w http.ResponseWriter, req *http.Request) {
-	jsonResponse(map[string]string{"status": "healthy"}, http.StatusOK, w)
-}
-
-func errorResponse(err error, w http.ResponseWriter) {
-	logger.Println("Error: " + err.Error())
-	w.WriteHeader(http.StatusInternalServerError)
-}
-
-func jsonResponse(response any, statusCode int, w http.ResponseWriter) {
-	json, err := json.Marshal(response)
-	if err != nil {
-		errorResponse(err, w)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(statusCode)
-	w.Write(json)
+	util.JsonResponse(map[string]string{"status": "healthy"}, http.StatusOK, w)
 }
 
 func createRedisClient() *redis.Client {
