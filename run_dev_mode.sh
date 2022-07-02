@@ -23,7 +23,7 @@ run_server() {
 
 run_server
 
-inotifywait -r -e close_write -m . |
+inotifywait -q -r -e close_write -m . |
 while read -r directory events filename; do
   if [[ $filename == *\.go ]]; then
     echo "Changes detected!"  
