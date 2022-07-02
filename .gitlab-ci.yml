@@ -6,7 +6,7 @@ run_test:
   stage: run test
   image: golang:1.18-stretch
   script:
-    - go test -v
+    - go test -v ./...
 
 deploy:
   stage: deploy
