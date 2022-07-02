@@ -11,11 +11,7 @@ import (
 	"myfeaturetoggles.com/toggles/util"
 )
 
-func RegisterHandlers(mux *http.ServeMux) {
-
-}
-
-type ToggleHandler struct {
+type toggleHandler struct {
 	ctx    context.Context
 	repo   ToggleRepo
 	logger log.Logger
@@ -30,11 +26,11 @@ type Ups struct {
 	Msg string `json:"error"`
 }
 
-func NewHandler(ctx context.Context, repo ToggleRepo, logger log.Logger) ToggleHandler {
-	return ToggleHandler{ctx, repo, logger}
+func NewHandler(ctx context.Context, repo ToggleRepo, logger log.Logger) http.Handler {
+	return toggleHandler{ctx, repo, logger}
 }
 
-func (h ToggleHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (h toggleHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	switch req.Method {
 	case "GET":
