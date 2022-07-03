@@ -3,7 +3,6 @@ package toggles
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -60,7 +59,7 @@ func (h toggleHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		id := strings.Replace(req.URL.Path, "/toggles/", "", -1)
 
 		if len(id) == 0 || id == req.URL.Path {
-			res := Ups{"A valid id is required for removing a toggle"}
+			res := Ups{"A valid id is required: /toggles/<id>"}
 			util.JsonResponse(res, http.StatusBadRequest, w)
 			return
 		}
@@ -71,8 +70,7 @@ func (h toggleHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		if !exist {
-			msg := fmt.Sprintf("the id '%s' doesn't match with an existing toggle", id)
-			util.JsonResponse(Ups{msg}, http.StatusBadRequest, w)
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
