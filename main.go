@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"myfeaturetoggles.com/toggles/auth"
 	"myfeaturetoggles.com/toggles/toggles"
 	"myfeaturetoggles.com/toggles/util"
 
@@ -42,13 +43,16 @@ func main() {
 	}
 
 	repo := toggles.NewRepo(redisClient)
+	userRepo := auth.NewUserRepo(redisClient)
 	handleToggles := toggles.NewHandler(ctx, repo, *logger)
+	handleSignUp := auth.NewSignUpHandler(ctx, *logger, userRepo)
 
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", health)
 	mux.Handle("/toggles", handleToggles)
 	mux.Handle("/toggles/", handleToggles)
+	mux.Handle("/signup", handleSignUp)
 
 	logger.Println("running server on port " + port)
 	err := http.ListenAndServe(":"+port, mux)
