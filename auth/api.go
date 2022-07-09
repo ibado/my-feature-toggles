@@ -8,6 +8,8 @@ import (
 
 	"myfeaturetoggles.com/toggles/toggles"
 	"myfeaturetoggles.com/toggles/util"
+
+	bcrypt "golang.org/x/crypto/bcrypt"
 )
 
 var ctx = context.Background()
@@ -50,7 +52,13 @@ func (h sighUpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err := h.repo.Create(ctx, User{body.Email, body.Password})
+	hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), 0)
+	if err != nil {
+		util.ErrorResponse(err, w)
+	}
+
+	user := User{body.Email, string(hash)}
+	err = h.repo.Create(ctx, user)
 	if err != nil {
 		util.ErrorResponse(err, w)
 	}
