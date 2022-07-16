@@ -46,6 +46,7 @@ func main() {
 	userRepo := auth.NewUserRepo(redisClient)
 	handleToggles := toggles.NewHandler(ctx, repo, *logger)
 	handleSignUp := auth.NewSignUpHandler(ctx, *logger, userRepo)
+	handleAuth := auth.NewAuthUpHandler(ctx, *logger, userRepo)
 
 	mux := http.NewServeMux()
 
@@ -53,6 +54,7 @@ func main() {
 	mux.Handle("/toggles", handleToggles)
 	mux.Handle("/toggles/", handleToggles)
 	mux.Handle("/signup", handleSignUp)
+	mux.Handle("/auth", handleAuth)
 
 	logger.Println("running server on port " + port)
 	err := http.ListenAndServe(":"+port, mux)

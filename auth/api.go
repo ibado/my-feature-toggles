@@ -2,9 +2,13 @@ package auth
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 
 	"myfeaturetoggles.com/toggles/toggles"
 	"myfeaturetoggles.com/toggles/util"
@@ -15,8 +19,12 @@ import (
 var ctx = context.Background()
 
 type SignUpBody struct {
-	Email    string
-	Password string
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type AuthResponse struct {
+	JWT string `json:"jwt"`
 }
 
 type sighUpHandler struct {
@@ -24,16 +32,16 @@ type sighUpHandler struct {
 }
 
 type authHandler struct {
-	repo UserRepository
+	repo   UserRepository
+	logger *log.Logger
 }
 
 func NewSignUpHandler(ctx context.Context, logger log.Logger, repo UserRepository) http.Handler {
 	return sighUpHandler{repo}
 }
 
-func NewAuthUpHandler(ctx context.Context, logger log.Logger) http.Handler {
-	return authHandler{}
-
+func NewAuthUpHandler(ctx context.Context, logger log.Logger, repo UserRepository) http.Handler {
+	return authHandler{repo, &logger}
 }
 
 func (h sighUpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -67,5 +75,57 @@ func (h sighUpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h authHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	defer req.Body.Close()
 
+	var userRequest User
+	json.NewDecoder(req.Body).Decode(&userRequest)
+
+	if err := validatePass(userRequest.PasswordHash); err != nil {
+		util.ErrorResponse(err, w)
+		return
+	}
+
+	user, err := h.repo.Get(ctx, userRequest.Email)
+	if err != nil {
+		util.ErrorResponse(err, w)
+		return
+	}
+
+	h.logger.Printf("user email: %s, user pass: %s", user.Email, user.PasswordHash)
+
+	token := generateJWT(user)
+	util.JsonResponse(AuthResponse{token}, http.StatusOK, w)
+}
+
+type jwtHeader struct {
+	Algorithm string
+}
+
+type jwtPayload struct {
+	Email string
+}
+
+func generateJWT(user User) string {
+	header := jwtHeader{"HS256"}
+	payload := jwtPayload{user.Email}
+
+	headerJson, _ := json.Marshal(header)
+	payloadJson, _ := json.Marshal(payload)
+
+	encondedHeader := base64.RawURLEncoding.EncodeToString(headerJson)
+	encodedPayload := base64.RawURLEncoding.EncodeToString(payloadJson)
+
+	hash := hmac.New(sha256.New, []byte(os.Getenv("PRIVATE_KEY")))
+	hash.Write([]byte(encondedHeader + "." + encodedPayload))
+	signature := base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
+
+	return encondedHeader + "." + encodedPayload + "." + signature
+}
+
+func validatePass(passwordHash string) error {
+	return nil
 }
