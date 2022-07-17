@@ -8,8 +8,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"myfeaturetoggles.com/toggles/toggles"
 )
 
 type fakeRepo struct {
@@ -26,7 +24,7 @@ func (fr fakeRepo) Get(ctx context.Context, email string) (User, error) {
 
 func TestSignUp(t *testing.T) {
 
-	body, _ := json.Marshal(SignUpBody{"ibado", "pass1234"})
+	body, _ := json.Marshal(signUpBody{"ibado", "pass1234"})
 
 	handler := NewSignUpHandler(context.Background(), *log.Default(), fakeRepo{})
 	recorder := httptest.NewRecorder()
@@ -43,7 +41,7 @@ func TestSignUp(t *testing.T) {
 
 func TestSignUpFail(t *testing.T) {
 
-	body, _ := json.Marshal(SignUpBody{"", "pass1234"})
+	body, _ := json.Marshal(signUpBody{"", "pass1234"})
 
 	handler := NewSignUpHandler(context.Background(), *log.Default(), fakeRepo{})
 	recorder := httptest.NewRecorder()
@@ -58,9 +56,9 @@ func TestSignUpFail(t *testing.T) {
 		t.Fatal("StatusCode should be 400")
 	}
 
-	var ups toggles.Ups
+	var ups map[string]string
 	json.NewDecoder(result.Body).Decode(&ups)
-	if ups.Msg != "Both email & password are required to be not empty" {
+	if ups["error"] != "Both email & password are required to be not empty" {
 		t.Fatal("Wrong response body msg")
 	}
 }
@@ -70,11 +68,13 @@ func validJWT(jwt string) bool {
 }
 
 func TestAuth(t *testing.T) {
-	user := User{"test@test.com", "aslñdkfjwer89324slkdf"}
+	ab := authBody{Email: "test@test.com", Password: "asd123456"}
+	passwordHash, err := hashPass(ab.Password)
+	user := User{"test@test.com", passwordHash}
 	repo := fakeRepo{user}
 	authHandler := NewAuthUpHandler(context.Background(), *log.Default(), repo)
 	recorder := httptest.NewRecorder()
-	body, err := json.Marshal(user)
+	body, err := json.Marshal(ab)
 	if err != nil {
 		t.Fail()
 	}
@@ -94,5 +94,27 @@ func TestAuth(t *testing.T) {
 
 	if !validJWT(resultBody.JWT) {
 		t.Fatal("invalid JWT")
+	}
+}
+
+func TestAuthInvalidPass(t *testing.T) {
+	ab := authBody{Email: "test@test.com", Password: "invalid password"}
+	user := User{"test@test.com", "hash that doesn't match"}
+	repo := fakeRepo{user}
+	authHandler := NewAuthUpHandler(context.Background(), *log.Default(), repo)
+	recorder := httptest.NewRecorder()
+	body, err := json.Marshal(ab)
+	if err != nil {
+		t.Fail()
+	}
+	request := httptest.NewRequest("POST", "/auth", bytes.NewReader(body))
+
+	authHandler.ServeHTTP(recorder, request)
+
+	result := recorder.Result()
+	defer result.Body.Close()
+
+	if result.StatusCode != 401 {
+		t.Fatalf("Status code should be 401 but is %d", result.StatusCode)
 	}
 }

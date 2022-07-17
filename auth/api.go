@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 
-	"myfeaturetoggles.com/toggles/toggles"
 	"myfeaturetoggles.com/toggles/util"
 
 	bcrypt "golang.org/x/crypto/bcrypt"
@@ -18,7 +17,12 @@ import (
 
 var ctx = context.Background()
 
-type SignUpBody struct {
+type signUpBody struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type authBody struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
@@ -51,21 +55,21 @@ func (h sighUpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	defer req.Body.Close()
-	var body SignUpBody
+	var body signUpBody
 	json.NewDecoder(req.Body).Decode(&body)
 
 	if body.Email == "" || body.Password == "" {
 		msg := "Both email & password are required to be not empty"
-		util.JsonResponse(toggles.Ups{Msg: msg}, http.StatusBadRequest, w)
+		util.JsonError(msg, http.StatusBadRequest, w)
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), 0)
+	hash, err := hashPass(body.Password)
 	if err != nil {
 		util.ErrorResponse(err, w)
 	}
 
-	user := User{body.Email, string(hash)}
+	user := User{body.Email, hash}
 	err = h.repo.Create(ctx, user)
 	if err != nil {
 		util.ErrorResponse(err, w)
@@ -81,20 +85,19 @@ func (h authHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	defer req.Body.Close()
 
-	var userRequest User
+	var userRequest authBody
 	json.NewDecoder(req.Body).Decode(&userRequest)
-
-	if err := validatePass(userRequest.PasswordHash); err != nil {
-		util.ErrorResponse(err, w)
-		return
-	}
 
 	user, err := h.repo.Get(ctx, userRequest.Email)
 	if err != nil {
 		util.ErrorResponse(err, w)
 		return
 	}
-
+	isValid := validatePass(userRequest.Password, user.PasswordHash)
+	if !isValid {
+		util.JsonError("Invalid password", 401, w)
+		return
+	}
 	h.logger.Printf("user email: %s, user pass: %s", user.Email, user.PasswordHash)
 
 	token := generateJWT(user)
@@ -109,6 +112,19 @@ type jwtPayload struct {
 	Email string
 }
 
+func hashPass(password string) (string, error) {
+	r, e := bcrypt.GenerateFromPassword([]byte(password), 0)
+	if e != nil {
+		return "", e
+	}
+	return string(r), nil
+}
+
+func validatePass(password string, passwordHash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password))
+	return err == nil
+}
+
 func generateJWT(user User) string {
 	header := jwtHeader{"HS256"}
 	payload := jwtPayload{user.Email}
@@ -119,18 +135,14 @@ func generateJWT(user User) string {
 	encondedHeader := base64.RawURLEncoding.EncodeToString(headerJson)
 	encodedPayload := base64.RawURLEncoding.EncodeToString(payloadJson)
 
-	token := encondedHeader + "." + encodedPayload
-	signature := sign(token)
+	headerWithPayload := encondedHeader + "." + encodedPayload
+	signature := sign(headerWithPayload)
 
-	return token + "." + signature
+	return headerWithPayload + "." + signature
 }
 
 func sign(target string) string {
 	hash := hmac.New(sha256.New, []byte(os.Getenv("PRIVATE_KEY")))
 	hash.Write([]byte(target))
 	return base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
-}
-
-func validatePass(passwordHash string) error {
-	return nil
 }

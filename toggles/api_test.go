@@ -90,9 +90,9 @@ func TestPutTogglesFail(t *testing.T) {
 	if result.StatusCode != http.StatusBadRequest {
 		t.Error("Status code should be 400")
 	}
-	var resBody Ups
+	var resBody map[string]string
 	json.NewDecoder(result.Body).Decode(&resBody)
-	if resBody.Msg != "Both 'id' and 'value' are required" {
+	if resBody["error"] != "Both 'id' and 'value' are required" {
 		t.Error("Body msg should doesn't match")
 	}
 }
@@ -137,11 +137,11 @@ func TestDeleteToggleFail(t *testing.T) {
 		t.Error("Status code should be 400")
 	}
 
-	var resBody Ups
+	var resBody map[string]string
 	json.NewDecoder(result.Body).Decode(&resBody)
 
-	if resBody.Msg != "A valid id is required: /toggles/<id>" {
-		t.Error("response body msg should match: " + resBody.Msg)
+	if resBody["error"] != "A valid id is required: /toggles/<id>" {
+		t.Error("response body msg should match: " + resBody["error"])
 	}
 }
 

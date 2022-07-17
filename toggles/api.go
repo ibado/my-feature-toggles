@@ -21,10 +21,6 @@ type Toggle struct {
 	Value string `json:"value"`
 }
 
-type Ups struct {
-	Msg string `json:"error"`
-}
-
 func NewHandler(ctx context.Context, repo ToggleRepo, logger log.Logger) http.Handler {
 	return toggleHandler{ctx, repo, logger}
 }
@@ -44,8 +40,7 @@ func (h toggleHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		var toggle Toggle
 		err := json.NewDecoder(req.Body).Decode(&toggle)
 		if err != nil || toggle.Id == "" || toggle.Value == "" {
-			res := Ups{"Both 'id' and 'value' are required"}
-			util.JsonResponse(res, http.StatusBadRequest, w)
+			util.JsonError("Both 'id' and 'value' are required", http.StatusBadRequest, w)
 			return
 		}
 		err = h.repo.Add(h.ctx, toggle.Id, toggle.Value)
@@ -59,8 +54,7 @@ func (h toggleHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		id := strings.Replace(req.URL.Path, "/toggles/", "", -1)
 
 		if len(id) == 0 || id == req.URL.Path {
-			res := Ups{"A valid id is required: /toggles/<id>"}
-			util.JsonResponse(res, http.StatusBadRequest, w)
+			util.JsonError("A valid id is required: /toggles/<id>", http.StatusBadRequest, w)
 			return
 		}
 
@@ -81,6 +75,6 @@ func (h toggleHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		w.WriteHeader(http.StatusOK)
 	default:
-		util.JsonResponse(Ups{"Method not allowed"}, http.StatusMethodNotAllowed, w)
+		util.JsonError("Method not allowed", http.StatusMethodNotAllowed, w)
 	}
 }
