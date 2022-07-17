@@ -119,11 +119,16 @@ func generateJWT(user User) string {
 	encondedHeader := base64.RawURLEncoding.EncodeToString(headerJson)
 	encodedPayload := base64.RawURLEncoding.EncodeToString(payloadJson)
 
-	hash := hmac.New(sha256.New, []byte(os.Getenv("PRIVATE_KEY")))
-	hash.Write([]byte(encondedHeader + "." + encodedPayload))
-	signature := base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
+	token := encondedHeader + "." + encodedPayload
+	signature := sign(token)
 
-	return encondedHeader + "." + encodedPayload + "." + signature
+	return token + "." + signature
+}
+
+func sign(target string) string {
+	hash := hmac.New(sha256.New, []byte(os.Getenv("PRIVATE_KEY")))
+	hash.Write([]byte(target))
+	return base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
 }
 
 func validatePass(passwordHash string) error {
