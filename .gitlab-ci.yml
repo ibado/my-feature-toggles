@@ -1,5 +1,6 @@
 stages:
 - run test
+- build & push
 - deploy
 
 run_test:
@@ -8,11 +9,23 @@ run_test:
   script:
     - go test -v ./...
 
+build_and_push:
+  stage: build & push
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u $DOCKER_USER -p $HEROKU_API_KEY $DOCKER_REGISTRY
+  script:
+    - docker build -t my-feature-toggles .
+    - docker tag my-feature-toggles $DOCKER_REGISTRY/my-feature-toggles/web
+    - docker push $DOCKER_REGISTRY/my-feature-toggles/web
 deploy:
   stage: deploy
   image: ubuntu:20.04
+  when: manual
   before_script:
     - apt update && apt install curl -y
-    - curl -fsSL https://railway.app/install.sh | sh
+    - curl https://cli-assets.heroku.com/install.sh | sh
   script:
-    - railway up
+    - heroku container:release web --app my-feature-toggles
