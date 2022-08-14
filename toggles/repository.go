@@ -2,6 +2,7 @@ package toggles
 
 import (
 	"context"
+	"database/sql"
 
 	redis "github.com/go-redis/redis/v8"
 )
@@ -16,15 +17,39 @@ type ToggleRepo interface {
 }
 
 type repo struct {
-	redisClient *redis.Client
+	redisClient  *redis.Client
+	dbConnection *sql.DB
 }
 
-func NewRepo(redisClient *redis.Client) ToggleRepo {
-	return repo{redisClient}
+func NewRepo(redisClient *redis.Client, dbConnection *sql.DB) ToggleRepo {
+	return repo{redisClient, dbConnection}
 }
 
 func (r repo) GetAll(ctx context.Context) (map[string]string, error) {
-	return r.redisClient.HGetAll(ctx, TOGGLES_KEY).Result()
+	rows, err := r.dbConnection.QueryContext(ctx, "SELECT * FROM toggles;")
+	if err != nil {
+		return map[string]string{}, err
+	}
+	result := map[string]string{}
+
+	err = mapRows(rows, result)
+	if err != nil {
+		return map[string]string{}, err
+	}
+
+	return result, nil
+}
+
+func mapRows(rows *sql.Rows, toMap map[string]string) error {
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		var value string
+		rows.Scan(&id, &value)
+		toMap[id] = value
+	}
+
+	return nil
 }
 
 func (r repo) Add(ctx context.Context, id string, value string) error {

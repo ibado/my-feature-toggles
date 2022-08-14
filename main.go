@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -11,10 +12,12 @@ import (
 	"myfeaturetoggles.com/toggles/util"
 
 	redis "github.com/go-redis/redis/v8"
+	_ "github.com/lib/pq"
 )
 
 var ctx = context.Background()
 var redisClient *redis.Client = nil
+var dbConnection *sql.DB = nil
 var logger = log.Default()
 
 func health(w http.ResponseWriter, req *http.Request) {
@@ -31,6 +34,16 @@ func createRedisClient() *redis.Client {
 	})
 }
 
+func createDBConnection() *sql.DB {
+	url := os.Getenv("DATABASE_URL")
+	db, err := sql.Open("postgres", url)
+	if err != nil {
+		log.Fatal(err)
+		return nil
+	}
+	return db
+}
+
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -38,11 +51,15 @@ func main() {
 	}
 
 	redisClient = createRedisClient()
+	dbConnection = createDBConnection()
+	if dbConnection == nil {
+		panic("Fails to connect with Postgres")
+	}
 	if redisClient == nil {
 		panic("Fails to connect with Redis")
 	}
 
-	repo := toggles.NewRepo(redisClient)
+	repo := toggles.NewRepo(redisClient, dbConnection)
 	userRepo := auth.NewUserRepo(redisClient)
 	handleToggles := toggles.NewHandler(ctx, repo, *logger)
 	handleSignUp := auth.NewSignUpHandler(ctx, *logger, userRepo)
