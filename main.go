@@ -59,7 +59,7 @@ func main() {
 		panic("Fails to connect with Redis")
 	}
 
-	repo := toggles.NewRepo(redisClient, dbConnection)
+	repo := toggles.NewRepo(dbConnection)
 	userRepo := auth.NewUserRepo(redisClient)
 	handleToggles := toggles.NewHandler(ctx, repo, *logger)
 	handleSignUp := auth.NewSignUpHandler(ctx, *logger, userRepo)

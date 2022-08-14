@@ -4,11 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
-	redis "github.com/go-redis/redis/v8"
 )
 
-const TOGGLES_KEY = "feature-toggles"
 const TOGGLES_TABLE_NAME = "toggles"
 
 type ToggleRepo interface {
@@ -19,12 +16,11 @@ type ToggleRepo interface {
 }
 
 type repo struct {
-	redisClient  *redis.Client
 	dbConnection *sql.DB
 }
 
-func NewRepo(redisClient *redis.Client, dbConnection *sql.DB) ToggleRepo {
-	return repo{redisClient, dbConnection}
+func NewRepo(dbConnection *sql.DB) ToggleRepo {
+	return repo{dbConnection}
 }
 
 func (r repo) GetAll(ctx context.Context) (map[string]string, error) {
@@ -54,11 +50,26 @@ func (r repo) Add(ctx context.Context, id string, value string) error {
 }
 
 func (r repo) Remove(ctx context.Context, id string) error {
-	return r.redisClient.HDel(ctx, TOGGLES_KEY, id).Err()
+	query := fmt.Sprintf("DELETE FROM %s WHERE id=$1;", TOGGLES_TABLE_NAME)
+	_, err := r.dbConnection.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r repo) Exist(ctx context.Context, id string) (bool, error) {
-	return r.redisClient.HExists(ctx, TOGGLES_KEY, id).Result()
+	query := fmt.Sprintf("SELECT count(1) FROM %s WHERE id=$1", TOGGLES_TABLE_NAME)
+	row := r.dbConnection.QueryRowContext(ctx, query, id)
+
+	var count int64
+	if err := row.Scan(&count); err != nil || count == 0 {
+		return false, err
+	}
+
+	return true, nil
+
 }
 
 func mapRows(rows *sql.Rows, toMap map[string]string) error {
