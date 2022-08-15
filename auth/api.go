@@ -73,6 +73,7 @@ func (h sighUpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	err = h.repo.Create(ctx, user)
 	if err != nil {
 		util.ErrorResponse(err, w)
+		return
 	}
 
 	w.WriteHeader(http.StatusCreated)

@@ -42,11 +42,8 @@ func (r repo) GetAll(ctx context.Context) (map[string]string, error) {
 func (r repo) Add(ctx context.Context, id string, value string) error {
 	query := fmt.Sprintf("INSERT INTO %s (id, value) VALUES ($1, $2);", TOGGLES_TABLE_NAME)
 	_, err := r.dbConnection.ExecContext(ctx, query, id, value)
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }
 
 func (r repo) Remove(ctx context.Context, id string) error {

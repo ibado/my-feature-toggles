@@ -11,27 +11,15 @@ import (
 	"myfeaturetoggles.com/toggles/toggles"
 	"myfeaturetoggles.com/toggles/util"
 
-	redis "github.com/go-redis/redis/v8"
 	_ "github.com/lib/pq"
 )
 
 var ctx = context.Background()
-var redisClient *redis.Client = nil
 var dbConnection *sql.DB = nil
 var logger = log.Default()
 
 func health(w http.ResponseWriter, req *http.Request) {
 	util.JsonResponse(map[string]string{"status": "healthy"}, http.StatusOK, w)
-}
-
-func createRedisClient() *redis.Client {
-	url := os.Getenv("REDIS_ADDR")
-	pass := os.Getenv("REDIS_PASS")
-	return redis.NewClient(&redis.Options{
-		Addr:     url,
-		Password: pass,
-		DB:       0,
-	})
 }
 
 func createDBConnection() *sql.DB {
@@ -50,17 +38,13 @@ func main() {
 		port = "8081"
 	}
 
-	redisClient = createRedisClient()
 	dbConnection = createDBConnection()
 	if dbConnection == nil {
 		panic("Fails to connect with Postgres")
 	}
-	if redisClient == nil {
-		panic("Fails to connect with Redis")
-	}
 
 	repo := toggles.NewRepo(dbConnection)
-	userRepo := auth.NewUserRepo(redisClient)
+	userRepo := auth.NewUserRepo(dbConnection)
 	handleToggles := toggles.NewHandler(ctx, repo, *logger)
 	handleSignUp := auth.NewSignUpHandler(ctx, *logger, userRepo)
 	handleAuth := auth.NewAuthUpHandler(ctx, *logger, userRepo)

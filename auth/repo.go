@@ -2,20 +2,19 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
-	"log"
-
-	redis "github.com/go-redis/redis/v8"
+	"database/sql"
+	"errors"
+	"fmt"
 )
 
-const USER_KEY = "users"
+const USERS_TABLE_NAME = "users"
 
-func NewUserRepo(redisClient *redis.Client) UserRepository {
-	return repo{redisClient}
+func NewUserRepo(dbConnection *sql.DB) UserRepository {
+	return repo{dbConnection}
 }
 
 type repo struct {
-	redisClient *redis.Client
+	dbConnection *sql.DB
 }
 
 type User struct {
@@ -29,27 +28,31 @@ type UserRepository interface {
 }
 
 func (r repo) Get(ctx context.Context, email string) (User, error) {
-	result, err := r.redisClient.HGet(ctx, USER_KEY, email).Result()
-	if err != nil {
-		return User{}, err
+	query := fmt.Sprintf("SELECT email, password_hash FROM %s WHERE email=$1;", USERS_TABLE_NAME)
+	row := r.dbConnection.QueryRowContext(ctx, query, email)
+	user := User{}
+	if err := row.Scan(&user.Email, &user.PasswordHash); err != nil {
+		return user, err
 	}
 
-	var user User
-	err = json.Unmarshal([]byte(result), &user)
-	if err != nil {
-		return User{}, err
-	}
 	return user, nil
 }
 
 func (r repo) Create(ctx context.Context, user User) error {
-	users, err := r.redisClient.HGetAll(ctx, USER_KEY).Result()
-	if err != nil {
-		log.Default().Fatalf("error reading users: %s", err.Error())
+	row := r.dbConnection.QueryRowContext(
+		ctx,
+		fmt.Sprintf("SELECT count(1) FROM %s WHERE email=$1", USERS_TABLE_NAME),
+		user.Email,
+	)
+	var count int64
+	if err := row.Scan(&count); err != nil {
+		return err
 	}
+	if count == 1 {
+		return errors.New("User with email: " + user.Email + " Already exist")
+	}
+	query := fmt.Sprintf("INSERT INTO %s (email, password_hash) VALUES ($1, $2);", USERS_TABLE_NAME)
+	_, err := r.dbConnection.ExecContext(ctx, query, user.Email, user.PasswordHash)
 
-	usersJson, _ := json.Marshal(users)
-	log.Default().Println("users: " + string(usersJson))
-	userJson, _ := json.Marshal(user)
-	return r.redisClient.HSet(ctx, USER_KEY, user.Email, userJson).Err()
+	return err
 }
