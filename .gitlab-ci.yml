@@ -15,7 +15,7 @@ build_and_push:
   services:
     - docker:dind
   before_script:
-    - docker login -u $DOCKER_USER -p $HEROKU_API_KEY $DOCKER_REGISTRY
+    - docker login -u $DOCKER_USER -p $DOCKER_PASS $DOCKER_REGISTRY
   script:
     - docker build -t my-feature-toggles .
     - docker tag my-feature-toggles $DOCKER_REGISTRY/my-feature-toggles/web
