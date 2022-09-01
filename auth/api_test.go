@@ -58,7 +58,7 @@ func TestSignUpFail(t *testing.T) {
 
 	var ups map[string]string
 	json.NewDecoder(result.Body).Decode(&ups)
-	if ups["error"] != "Both email & password are required to be not empty" {
+	if ups["error"] != "Both email & password are required" {
 		t.Fatal("Wrong response body msg")
 	}
 }
