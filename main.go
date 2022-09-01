@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"myfeaturetoggles.com/toggles/auth"
+	"myfeaturetoggles.com/toggles/router"
 	"myfeaturetoggles.com/toggles/toggles"
 	"myfeaturetoggles.com/toggles/util"
 
@@ -49,13 +50,17 @@ func main() {
 	handleSignUp := auth.NewSignUpHandler(ctx, *logger, userRepo)
 	handleAuth := auth.NewAuthUpHandler(ctx, *logger, userRepo)
 
-	mux := http.NewServeMux()
+	mux := router.NewRouter()
 
+	// public endpoints
 	mux.HandleFunc("/health", health)
-	mux.Handle("/toggles", handleToggles)
-	mux.Handle("/toggles/", handleToggles)
 	mux.Handle("/signup", handleSignUp)
 	mux.Handle("/auth", handleAuth)
+
+	mux.Use(auth.AuthMiddleware())
+	// private endpoints
+	mux.Handle("/toggles", handleToggles)
+	mux.Handle("/toggles/", handleToggles)
 
 	logger.Println("running server on port " + port)
 	err := http.ListenAndServe(":"+port, mux)

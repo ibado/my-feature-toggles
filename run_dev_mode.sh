@@ -26,6 +26,7 @@ run_server
 inotifywait -q -r -e close_write -m . |
 while read -r directory events filename; do
   if [[ $filename == *\.go ]]; then
+    echo ""
     echo "Changes detected!"  
     run_server
   fi
