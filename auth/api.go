@@ -31,7 +31,7 @@ type AuthResponse struct {
 	JWT string `json:"jwt"`
 }
 
-type sighUpHandler struct {
+type signUpHandler struct {
 	repo UserRepository
 }
 
@@ -41,14 +41,14 @@ type authHandler struct {
 }
 
 func NewSignUpHandler(ctx context.Context, logger log.Logger, repo UserRepository) http.Handler {
-	return sighUpHandler{repo}
+	return signUpHandler{repo}
 }
 
 func NewAuthUpHandler(ctx context.Context, logger log.Logger, repo UserRepository) http.Handler {
 	return authHandler{repo, &logger}
 }
 
-func (h sighUpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (h signUpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -59,8 +59,7 @@ func (h sighUpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	json.NewDecoder(req.Body).Decode(&body)
 
 	if body.Email == "" || body.Password == "" {
-		msg := "Both email & password are required to be not empty"
-		util.JsonError(msg, http.StatusBadRequest, w)
+		util.JsonError("Both email & password are required", http.StatusBadRequest, w)
 		return
 	}
 
@@ -88,6 +87,9 @@ func (h authHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	var userRequest authBody
 	json.NewDecoder(req.Body).Decode(&userRequest)
+	if userRequest.Email == "" || userRequest.Password == "" {
+		util.JsonError("Both email and password are required", http.StatusBadRequest, w)
+	}
 
 	user, err := h.repo.Get(ctx, userRequest.Email)
 	if err != nil {
