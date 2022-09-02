@@ -9,9 +9,7 @@ type router struct {
 	middlewares []Middleware
 }
 
-type Middleware interface {
-	Apply(http.ResponseWriter, *http.Request) bool
-}
+type Middleware func(next http.Handler) http.Handler
 
 func NewRouter() router {
 	return router{http.NewServeMux(), []Middleware{}}
@@ -21,22 +19,35 @@ func (r *router) Use(middleware Middleware) {
 	r.middlewares = append(r.middlewares, middleware)
 }
 
-func (r *router) Handle(path string, handler http.Handler) {
-	middlewares := r.middlewares
-	r.mux.HandleFunc(path, func(w http.ResponseWriter, req *http.Request) {
-		for _, m := range middlewares {
-			if success := m.Apply(w, req); !success {
-				return
-			}
-		}
-		handler.ServeHTTP(w, req)
-	})
-}
-
 func (r router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.mux.ServeHTTP(w, req)
 }
 
-func (r *router) HandleFunc(p string, h func(http.ResponseWriter, *http.Request)) {
-	r.mux.HandleFunc(p, h)
+func (r *router) Handle(path string, handler http.Handler) {
+	r.registerHandler(path, handler)
+}
+
+func (r *router) HandleFunc(p string, handler func(http.ResponseWriter, *http.Request)) {
+	r.registerHandler(p, http.HandlerFunc(handler))
+}
+
+func (r *router) registerHandler(path string, handler http.Handler) {
+	middlewares := r.middlewares
+	r.mux.HandleFunc(path, func(w http.ResponseWriter, req *http.Request) {
+		h := resolveHandler(middlewares, handler)
+		h.ServeHTTP(w, req)
+	})
+}
+
+func resolveHandler(middlewares []Middleware, h http.Handler) http.Handler {
+	if len(middlewares) == 0 {
+		return h
+	}
+	if len(middlewares) == 1 {
+		return middlewares[0](h)
+	} else {
+		head := middlewares[0]
+		tail := middlewares[1:]
+		return head(resolveHandler(tail, h))
+	}
 }

@@ -7,16 +7,16 @@ import (
 )
 
 func AuthMiddleware() router.Middleware {
-	return authMiddleware{}
-}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			token := r.Header.Get("Authorization")
 
-type authMiddleware struct{}
+			if token == "" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
 
-func (a authMiddleware) Apply(w http.ResponseWriter, r *http.Request) bool {
-	token := r.Header.Get("Authorization")
-	if token == "" {
-		w.WriteHeader(http.StatusUnauthorized)
-		return false
+			next.ServeHTTP(w, r)
+		})
 	}
-	return true
 }

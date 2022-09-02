@@ -33,6 +33,14 @@ func createDBConnection() *sql.DB {
 	return db
 }
 
+var loggingMiddleware = func(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqLog := r.Method + " " + r.URL.Path
+		logger.Println(reqLog)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -51,6 +59,7 @@ func main() {
 	handleAuth := auth.NewAuthUpHandler(ctx, *logger, userRepo)
 
 	mux := router.NewRouter()
+	mux.Use(loggingMiddleware)
 
 	// public endpoints
 	mux.HandleFunc("/health", health)
