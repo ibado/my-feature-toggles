@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"myfeaturetoggles.com/toggles/util"
 
@@ -148,4 +149,20 @@ func sign(target string) string {
 	hash := hmac.New(sha256.New, []byte(os.Getenv("PRIVATE_KEY")))
 	hash.Write([]byte(target))
 	return base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
+}
+
+func validateJWT(token string) bool {
+	split := strings.Split(token, ".")
+	if len(split) != 3 {
+		return false
+	}
+
+	headerAndPayload := split[0] + "." + split[1]
+	signature := split[2]
+
+	if sign(headerAndPayload) != signature {
+		return false
+	}
+
+	return true
 }

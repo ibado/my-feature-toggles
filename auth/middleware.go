@@ -11,7 +11,7 @@ func AuthMiddleware() router.Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := r.Header.Get("Authorization")
 
-			if token == "" {
+			if token == "" || !validateJWT(token) {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
