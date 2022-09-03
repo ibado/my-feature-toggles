@@ -10,11 +10,14 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"myfeaturetoggles.com/toggles/util"
 
 	bcrypt "golang.org/x/crypto/bcrypt"
 )
+
+const EXPIRATION_TIME_SECONDS int64 = 2 * 60 * 60 // 2 hs
 
 var ctx = context.Background()
 
@@ -114,6 +117,7 @@ type jwtHeader struct {
 
 type jwtPayload struct {
 	Email string
+	Iat   int64
 }
 
 func hashPass(password string) (string, error) {
@@ -131,7 +135,7 @@ func validatePass(password string, passwordHash string) bool {
 
 func generateJWT(user User) string {
 	header := jwtHeader{"HS256"}
-	payload := jwtPayload{user.Email}
+	payload := jwtPayload{user.Email, time.Now().Unix()}
 
 	headerJson, _ := json.Marshal(header)
 	payloadJson, _ := json.Marshal(payload)
@@ -164,5 +168,25 @@ func validateJWT(token string) bool {
 		return false
 	}
 
+	payload, _ := decodeJWTPayload(split[1])
+	if payload.Iat+EXPIRATION_TIME_SECONDS < time.Now().Unix() {
+		return false
+	}
+
 	return true
+}
+
+func decodeJWTPayload(payload string) (jwtPayload, error) {
+	jsonPayload, err := base64.RawURLEncoding.DecodeString(payload)
+	if err != nil {
+		return jwtPayload{}, err
+	}
+
+	var jp jwtPayload
+	err = json.Unmarshal(jsonPayload, &jp)
+	if err != nil {
+		return jwtPayload{}, err
+	}
+
+	return jp, nil
 }
