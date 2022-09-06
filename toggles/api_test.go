@@ -46,10 +46,11 @@ func TestGetTogglesSuccess(t *testing.T) {
 	result := recorder.Result()
 	defer result.Body.Close()
 
-	var resBody map[string]string
+	var resBody []Toggle
 	json.NewDecoder(result.Body).Decode(&resBody)
 
-	if !reflect.DeepEqual(resBody, toggleList) {
+	expectedBody := []Toggle{{"id1", "value1"}, {"id2", "value2"}}
+	if !reflect.DeepEqual(resBody, expectedBody) {
 		t.Error("Response body doen't match")
 	}
 }

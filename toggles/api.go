@@ -34,7 +34,12 @@ func (h toggleHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			util.ErrorResponse(err, w)
 			return
 		}
-		util.JsonResponse(toggles, http.StatusOK, w)
+
+		res := []Toggle{}
+		for k, v := range toggles {
+			res = append(res, Toggle{k, v})
+		}
+		util.JsonResponse(res, http.StatusOK, w)
 	case "PUT":
 		defer req.Body.Close()
 		var toggle Toggle
