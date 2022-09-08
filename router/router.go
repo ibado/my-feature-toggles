@@ -40,12 +40,12 @@ func (r *router) registerHandler(path string, handler http.Handler) {
 }
 
 func resolveHandler(middlewares []Middleware, h http.Handler) http.Handler {
-	if len(middlewares) == 0 {
+	switch len(middlewares) {
+	case 0:
 		return h
-	}
-	if len(middlewares) == 1 {
+	case 1:
 		return middlewares[0](h)
-	} else {
+	default:
 		head := middlewares[0]
 		tail := middlewares[1:]
 		return head(resolveHandler(tail, h))
