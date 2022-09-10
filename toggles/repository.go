@@ -24,7 +24,7 @@ func NewRepo(dbConnection *sql.DB) ToggleRepo {
 }
 
 func (r repo) GetAll(ctx context.Context) (map[string]string, error) {
-	query := fmt.Sprintf("SELECT * FROM %s;", TOGGLES_TABLE_NAME)
+	query := fmt.Sprintf("SELECT (id,value) FROM %s;", TOGGLES_TABLE_NAME)
 	rows, err := r.dbConnection.QueryContext(ctx, query)
 	if err != nil {
 		return map[string]string{}, err
