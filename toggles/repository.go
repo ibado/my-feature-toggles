@@ -9,10 +9,10 @@ import (
 const TOGGLES_TABLE_NAME = "toggles"
 
 type ToggleRepo interface {
-	GetAll(ctx context.Context) (map[string]string, error)
-	Add(ctx context.Context, id string, value string) error
-	Remove(ctx context.Context, id string) error
-	Exist(ctx context.Context, id string) (bool, error)
+	GetAll(ctx context.Context, userId int64) (map[string]string, error)
+	Add(ctx context.Context, id string, value string, userId int64) error
+	Remove(ctx context.Context, id string, userId int64) error
+	Exist(ctx context.Context, id string, userId int64) (bool, error)
 }
 
 type repo struct {
@@ -23,9 +23,9 @@ func NewRepo(dbConnection *sql.DB) ToggleRepo {
 	return repo{dbConnection}
 }
 
-func (r repo) GetAll(ctx context.Context) (map[string]string, error) {
-	query := fmt.Sprintf("SELECT id, value FROM %s;", TOGGLES_TABLE_NAME)
-	rows, err := r.dbConnection.QueryContext(ctx, query)
+func (r repo) GetAll(ctx context.Context, userId int64) (map[string]string, error) {
+	query := fmt.Sprintf("SELECT id, value FROM %s where user_id=$1;", TOGGLES_TABLE_NAME)
+	rows, err := r.dbConnection.QueryContext(ctx, query, userId)
 	if err != nil {
 		return map[string]string{}, err
 	}
@@ -39,16 +39,16 @@ func (r repo) GetAll(ctx context.Context) (map[string]string, error) {
 	return result, nil
 }
 
-func (r repo) Add(ctx context.Context, id string, value string) error {
-	query := fmt.Sprintf("INSERT INTO %s (id, value) VALUES ($1, $2);", TOGGLES_TABLE_NAME)
-	_, err := r.dbConnection.ExecContext(ctx, query, id, value)
+func (r repo) Add(ctx context.Context, id string, value string, userId int64) error {
+	query := fmt.Sprintf("INSERT INTO %s (id, value, user_id) VALUES ($1, $2, $3);", TOGGLES_TABLE_NAME)
+	_, err := r.dbConnection.ExecContext(ctx, query, id, value, userId)
 
 	return err
 }
 
-func (r repo) Remove(ctx context.Context, id string) error {
-	query := fmt.Sprintf("DELETE FROM %s WHERE id=$1;", TOGGLES_TABLE_NAME)
-	_, err := r.dbConnection.ExecContext(ctx, query, id)
+func (r repo) Remove(ctx context.Context, id string, userId int64) error {
+	query := fmt.Sprintf("DELETE FROM %s WHERE id=$1 AND user_id=$2;", TOGGLES_TABLE_NAME)
+	_, err := r.dbConnection.ExecContext(ctx, query, id, userId)
 	if err != nil {
 		return err
 	}
@@ -56,9 +56,9 @@ func (r repo) Remove(ctx context.Context, id string) error {
 	return nil
 }
 
-func (r repo) Exist(ctx context.Context, id string) (bool, error) {
-	query := fmt.Sprintf("SELECT count(1) FROM %s WHERE id=$1", TOGGLES_TABLE_NAME)
-	row := r.dbConnection.QueryRowContext(ctx, query, id)
+func (r repo) Exist(ctx context.Context, id string, userId int64) (bool, error) {
+	query := fmt.Sprintf("SELECT count(1) FROM %s WHERE id=$1 AND user_id=$2", TOGGLES_TABLE_NAME)
+	row := r.dbConnection.QueryRowContext(ctx, query, id, userId)
 
 	var count int64
 	if err := row.Scan(&count); err != nil || count == 0 {

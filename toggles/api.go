@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"myfeaturetoggles.com/toggles/auth"
 	"myfeaturetoggles.com/toggles/util"
 )
 
@@ -27,9 +28,14 @@ func NewHandler(ctx context.Context, repo ToggleRepo, logger log.Logger) http.Ha
 
 func (h toggleHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
+	userId, err := auth.GetUserId(req)
+	if err != nil {
+		util.ErrorResponse(err, w)
+		return
+	}
 	switch req.Method {
 	case "GET":
-		toggles, err := h.repo.GetAll(h.ctx)
+		toggles, err := h.repo.GetAll(h.ctx, userId)
 		if err != nil {
 			util.ErrorResponse(err, w)
 			return
@@ -43,12 +49,12 @@ func (h toggleHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	case "PUT":
 		defer req.Body.Close()
 		var toggle Toggle
-		err := json.NewDecoder(req.Body).Decode(&toggle)
+		err = json.NewDecoder(req.Body).Decode(&toggle)
 		if err != nil || toggle.Id == "" || toggle.Value == "" {
 			util.JsonError("Both 'id' and 'value' are required", http.StatusBadRequest, w)
 			return
 		}
-		err = h.repo.Add(h.ctx, toggle.Id, toggle.Value)
+		err = h.repo.Add(h.ctx, toggle.Id, toggle.Value, userId)
 		if err != nil {
 			util.ErrorResponse(err, w)
 			return
@@ -63,7 +69,7 @@ func (h toggleHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		exist, err := h.repo.Exist(h.ctx, id)
+		exist, err := h.repo.Exist(h.ctx, id, userId)
 		if err != nil {
 			util.ErrorResponse(err, w)
 			return
@@ -73,7 +79,7 @@ func (h toggleHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		err = h.repo.Remove(h.ctx, id)
+		err = h.repo.Remove(h.ctx, id, userId)
 		if err != nil {
 			util.ErrorResponse(err, w)
 			return

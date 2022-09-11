@@ -11,25 +11,27 @@ import (
 	"testing"
 )
 
+const fakeJwt = "header.eyJVc2VySWQiOjEwLCJJYXQiOjE2NjI4NTQ2NzB9.sign"
+
 type FakeRepo struct {
 	Err         error
 	Entries     map[string]string
 	ToggleExist bool
 }
 
-func (r FakeRepo) GetAll(ctx context.Context) (map[string]string, error) {
+func (r FakeRepo) GetAll(ctx context.Context, userId int64) (map[string]string, error) {
 	return r.Entries, r.Err
 }
 
-func (r FakeRepo) Add(ctx context.Context, id string, value string) error {
+func (r FakeRepo) Add(ctx context.Context, id string, value string, userId int64) error {
 	return r.Err
 }
 
-func (r FakeRepo) Remove(ctx context.Context, id string) error {
+func (r FakeRepo) Remove(ctx context.Context, id string, userId int64) error {
 	return r.Err
 }
 
-func (r FakeRepo) Exist(ctx context.Context, id string) (bool, error) {
+func (r FakeRepo) Exist(ctx context.Context, id string, userId int64) (bool, error) {
 	return r.ToggleExist, r.Err
 }
 
@@ -38,6 +40,7 @@ func TestGetTogglesSuccess(t *testing.T) {
 
 	toggleList := map[string]string{"id1": "value1", "id2": "value2"}
 	request := httptest.NewRequest("GET", "/toggles", nil)
+	request.Header.Add("Authorization", fakeJwt)
 	repo := FakeRepo{Entries: toggleList}
 	handler := NewHandler(context.Background(), repo, *log.Default())
 
@@ -59,6 +62,7 @@ func TestPutTogglesSuccess(t *testing.T) {
 	body := Toggle{"id", "value"}
 	json, _ := json.Marshal(body)
 	request := httptest.NewRequest("PUT", "/toggles", bytes.NewBuffer(json))
+	request.Header.Add("Authorization", fakeJwt)
 	recorder := httptest.NewRecorder()
 
 	repo := FakeRepo{Err: nil}
@@ -77,6 +81,7 @@ func TestPutTogglesFail(t *testing.T) {
 	toggle := Toggle{"", "value"}
 	jsonBody, _ := json.Marshal(toggle)
 	request := httptest.NewRequest("PUT", "/toggles", bytes.NewBuffer(jsonBody))
+	request.Header.Add("Authorization", fakeJwt)
 	recorder := httptest.NewRecorder()
 	defer request.Body.Close()
 
@@ -105,6 +110,7 @@ func TestDeleteToggleSuccess(t *testing.T) {
 		"/toggles/"+toggleId,
 		nil,
 	)
+	request.Header.Add("Authorization", fakeJwt)
 	recorder := httptest.NewRecorder()
 
 	repo := FakeRepo{Err: nil, ToggleExist: true}
@@ -125,6 +131,7 @@ func TestDeleteToggleFail(t *testing.T) {
 		"/toggles/"+toggleId,
 		nil,
 	)
+	request.Header.Add("Authorization", fakeJwt)
 	recorder := httptest.NewRecorder()
 
 	repo := FakeRepo{Err: nil, ToggleExist: true}
@@ -153,6 +160,7 @@ func TestDeleteToggleFailWith404(t *testing.T) {
 		"/toggles/"+toggleId,
 		nil,
 	)
+	request.Header.Add("Authorization", fakeJwt)
 	recorder := httptest.NewRecorder()
 
 	repo := FakeRepo{Err: nil, ToggleExist: false}

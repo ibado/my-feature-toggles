@@ -18,41 +18,53 @@ type repo struct {
 }
 
 type User struct {
+	Id           int64
 	Email        string
 	PasswordHash string
 }
 
 type UserRepository interface {
-	Create(ctx context.Context, user User) error
+	Create(ctx context.Context, email string, passwordHash string) (int64, error)
 	Get(ctx context.Context, email string) (User, error)
 }
 
 func (r repo) Get(ctx context.Context, email string) (User, error) {
-	query := fmt.Sprintf("SELECT email, password_hash FROM %s WHERE email=$1;", USERS_TABLE_NAME)
+	query := fmt.Sprintf("SELECT id, password_hash FROM %s WHERE email=$1;", USERS_TABLE_NAME)
 	row := r.dbConnection.QueryRowContext(ctx, query, email)
-	user := User{}
-	if err := row.Scan(&user.Email, &user.PasswordHash); err != nil {
+	user := User{Email: email}
+	if err := row.Scan(&user.Id, &user.PasswordHash); err != nil {
 		return user, err
 	}
 
 	return user, nil
 }
 
-func (r repo) Create(ctx context.Context, user User) error {
+func (r repo) Create(ctx context.Context, email string, passwordHash string) (int64, error) {
 	row := r.dbConnection.QueryRowContext(
 		ctx,
 		fmt.Sprintf("SELECT count(1) FROM %s WHERE email=$1", USERS_TABLE_NAME),
-		user.Email,
+		email,
 	)
 	var count int64
 	if err := row.Scan(&count); err != nil {
-		return err
+		return -1, err
 	}
 	if count == 1 {
-		return errors.New("User with email: " + user.Email + " Already exist")
+		return -1, errors.New("User with email: " + email + " Already exist")
 	}
 	query := fmt.Sprintf("INSERT INTO %s (email, password_hash) VALUES ($1, $2);", USERS_TABLE_NAME)
-	_, err := r.dbConnection.ExecContext(ctx, query, user.Email, user.PasswordHash)
+	_, err := r.dbConnection.ExecContext(ctx, query, email, passwordHash)
+	if err != nil {
+		return -1, err
+	}
 
-	return err
+	query = fmt.Sprintf("SELECT id FROM %s where email=$1", USERS_TABLE_NAME)
+	user := r.dbConnection.QueryRowContext(ctx, query, email)
+	var userId int64
+	err = user.Scan(&userId)
+	if err != nil {
+		return -1, err
+	}
+
+	return userId, nil
 }

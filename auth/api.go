@@ -2,15 +2,9 @@ package auth
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"log"
 	"net/http"
-	"os"
-	"strings"
-	"time"
 
 	"myfeaturetoggles.com/toggles/util"
 
@@ -72,8 +66,7 @@ func (h signUpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		util.ErrorResponse(err, w)
 	}
 
-	user := User{body.Email, hash}
-	err = h.repo.Create(ctx, user)
+	_, err = h.repo.Create(ctx, body.Email, hash)
 	if err != nil {
 		util.ErrorResponse(err, w)
 		return
@@ -116,8 +109,8 @@ type jwtHeader struct {
 }
 
 type jwtPayload struct {
-	Email string
-	Iat   int64
+	UserId int64
+	Iat    int64
 }
 
 func hashPass(password string) (string, error) {
@@ -131,62 +124,4 @@ func hashPass(password string) (string, error) {
 func validatePass(password string, passwordHash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password))
 	return err == nil
-}
-
-func generateJWT(user User) string {
-	header := jwtHeader{"HS256"}
-	payload := jwtPayload{user.Email, time.Now().Unix()}
-
-	headerJson, _ := json.Marshal(header)
-	payloadJson, _ := json.Marshal(payload)
-
-	encondedHeader := base64.RawURLEncoding.EncodeToString(headerJson)
-	encodedPayload := base64.RawURLEncoding.EncodeToString(payloadJson)
-
-	headerWithPayload := encondedHeader + "." + encodedPayload
-	signature := sign(headerWithPayload)
-
-	return headerWithPayload + "." + signature
-}
-
-func sign(target string) string {
-	hash := hmac.New(sha256.New, []byte(os.Getenv("PRIVATE_KEY")))
-	hash.Write([]byte(target))
-	return base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
-}
-
-func validateJWT(token string) bool {
-	split := strings.Split(token, ".")
-	if len(split) != 3 {
-		return false
-	}
-
-	headerAndPayload := split[0] + "." + split[1]
-	signature := split[2]
-
-	if sign(headerAndPayload) != signature {
-		return false
-	}
-
-	payload, _ := decodeJWTPayload(split[1])
-	if payload.Iat+EXPIRATION_TIME_SECONDS < time.Now().Unix() {
-		return false
-	}
-
-	return true
-}
-
-func decodeJWTPayload(payload string) (jwtPayload, error) {
-	jsonPayload, err := base64.RawURLEncoding.DecodeString(payload)
-	if err != nil {
-		return jwtPayload{}, err
-	}
-
-	var jp jwtPayload
-	err = json.Unmarshal(jsonPayload, &jp)
-	if err != nil {
-		return jwtPayload{}, err
-	}
-
-	return jp, nil
 }

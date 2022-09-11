@@ -10,12 +10,14 @@ import (
 	"testing"
 )
 
+const fakeJwt = "header.eyJVc2VySWQiOjEwLCJJYXQiOjE2NjI4NTQ2NzB9.sign"
+
 type fakeRepo struct {
 	User
 }
 
-func (fr fakeRepo) Create(context.Context, User) error {
-	return nil
+func (fr fakeRepo) Create(ctx context.Context, email string, passwordHash string) (int64, error) {
+	return 1, nil
 }
 
 func (fr fakeRepo) Get(ctx context.Context, email string) (User, error) {
@@ -29,6 +31,7 @@ func TestSignUp(t *testing.T) {
 	handler := NewSignUpHandler(context.Background(), *log.Default(), fakeRepo{})
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest("POST", "/signup", bytes.NewReader(body))
+	request.Header.Add("Authorization", fakeJwt)
 
 	handler.ServeHTTP(recorder, request)
 
@@ -46,6 +49,7 @@ func TestSignUpFail(t *testing.T) {
 	handler := NewSignUpHandler(context.Background(), *log.Default(), fakeRepo{})
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest("POST", "/signup", bytes.NewReader(body))
+	request.Header.Add("Authorization", fakeJwt)
 
 	handler.ServeHTTP(recorder, request)
 
@@ -70,7 +74,7 @@ func validJWT(jwt string) bool {
 func TestAuth(t *testing.T) {
 	ab := authBody{Email: "test@test.com", Password: "asd123456"}
 	passwordHash, err := hashPass(ab.Password)
-	user := User{"test@test.com", passwordHash}
+	user := User{10, "test@test.com", passwordHash}
 	repo := fakeRepo{user}
 	authHandler := NewAuthUpHandler(context.Background(), *log.Default(), repo)
 	recorder := httptest.NewRecorder()
@@ -79,6 +83,7 @@ func TestAuth(t *testing.T) {
 		t.Fail()
 	}
 	request := httptest.NewRequest("POST", "/auth", bytes.NewReader(body))
+	request.Header.Add("Authorization", fakeJwt)
 
 	authHandler.ServeHTTP(recorder, request)
 
@@ -99,7 +104,7 @@ func TestAuth(t *testing.T) {
 
 func TestAuthInvalidPass(t *testing.T) {
 	ab := authBody{Email: "test@test.com", Password: "invalid password"}
-	user := User{"test@test.com", "hash that doesn't match"}
+	user := User{10, "test@test.com", "hash that doesn't match"}
 	repo := fakeRepo{user}
 	authHandler := NewAuthUpHandler(context.Background(), *log.Default(), repo)
 	recorder := httptest.NewRecorder()
@@ -108,6 +113,7 @@ func TestAuthInvalidPass(t *testing.T) {
 		t.Fail()
 	}
 	request := httptest.NewRequest("POST", "/auth", bytes.NewReader(body))
+	request.Header.Add("Authorization", fakeJwt)
 
 	authHandler.ServeHTTP(recorder, request)
 
