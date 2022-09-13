@@ -16,8 +16,8 @@ type fakeRepo struct {
 	User
 }
 
-func (fr fakeRepo) Create(ctx context.Context, email string, passwordHash string) (int64, error) {
-	return 1, nil
+func (fr fakeRepo) Create(ctx context.Context, email string, passwordHash string) error {
+	return nil
 }
 
 func (fr fakeRepo) Get(ctx context.Context, email string) (User, error) {

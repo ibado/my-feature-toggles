@@ -66,7 +66,7 @@ func (h signUpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		util.ErrorResponse(err, w)
 	}
 
-	_, err = h.repo.Create(ctx, body.Email, hash)
+	err = h.repo.Create(ctx, body.Email, hash)
 	if err != nil {
 		util.ErrorResponse(err, w)
 		return
