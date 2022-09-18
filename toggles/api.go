@@ -14,7 +14,7 @@ import (
 type toggleHandler struct {
 	ctx    context.Context
 	repo   ToggleRepo
-	logger log.Logger
+	logger *log.Logger
 }
 
 type Toggle struct {
@@ -22,7 +22,7 @@ type Toggle struct {
 	Value string `json:"value"`
 }
 
-func NewHandler(ctx context.Context, repo ToggleRepo, logger log.Logger) http.Handler {
+func NewHandler(ctx context.Context, repo ToggleRepo, logger *log.Logger) http.Handler {
 	return toggleHandler{ctx, repo, logger}
 }
 

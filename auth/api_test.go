@@ -28,7 +28,7 @@ func TestSignUp(t *testing.T) {
 
 	body, _ := json.Marshal(signUpBody{"ibado", "pass1234"})
 
-	handler := NewSignUpHandler(context.Background(), *log.Default(), fakeRepo{})
+	handler := NewSignUpHandler(context.Background(), log.Default(), fakeRepo{})
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest("POST", "/signup", bytes.NewReader(body))
 	request.Header.Add("Authorization", fakeJwt)
@@ -46,7 +46,7 @@ func TestSignUpFail(t *testing.T) {
 
 	body, _ := json.Marshal(signUpBody{"", "pass1234"})
 
-	handler := NewSignUpHandler(context.Background(), *log.Default(), fakeRepo{})
+	handler := NewSignUpHandler(context.Background(), log.Default(), fakeRepo{})
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest("POST", "/signup", bytes.NewReader(body))
 	request.Header.Add("Authorization", fakeJwt)
@@ -76,7 +76,7 @@ func TestAuth(t *testing.T) {
 	passwordHash, err := hashPass(ab.Password)
 	user := User{10, "test@test.com", passwordHash}
 	repo := fakeRepo{user}
-	authHandler := NewAuthUpHandler(context.Background(), *log.Default(), repo)
+	authHandler := NewAuthUpHandler(context.Background(), log.Default(), repo)
 	recorder := httptest.NewRecorder()
 	body, err := json.Marshal(ab)
 	if err != nil {
@@ -106,7 +106,7 @@ func TestAuthInvalidPass(t *testing.T) {
 	ab := authBody{Email: "test@test.com", Password: "invalid password"}
 	user := User{10, "test@test.com", "hash that doesn't match"}
 	repo := fakeRepo{user}
-	authHandler := NewAuthUpHandler(context.Background(), *log.Default(), repo)
+	authHandler := NewAuthUpHandler(context.Background(), log.Default(), repo)
 	recorder := httptest.NewRecorder()
 	body, err := json.Marshal(ab)
 	if err != nil {

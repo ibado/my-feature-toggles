@@ -54,9 +54,9 @@ func main() {
 
 	repo := toggles.NewRepo(dbConnection)
 	userRepo := auth.NewUserRepo(dbConnection)
-	handleToggles := toggles.NewHandler(ctx, repo, *logger)
-	handleSignUp := auth.NewSignUpHandler(ctx, *logger, userRepo)
-	handleAuth := auth.NewAuthUpHandler(ctx, *logger, userRepo)
+	handleToggles := toggles.NewHandler(ctx, repo, logger)
+	handleSignUp := auth.NewSignUpHandler(ctx, logger, userRepo)
+	handleAuth := auth.NewAuthUpHandler(ctx, logger, userRepo)
 
 	mux := router.NewRouter()
 	mux.Use(loggingMiddleware)

@@ -38,12 +38,12 @@ type authHandler struct {
 	logger *log.Logger
 }
 
-func NewSignUpHandler(ctx context.Context, logger log.Logger, repo UserRepository) http.Handler {
+func NewSignUpHandler(ctx context.Context, logger *log.Logger, repo UserRepository) http.Handler {
 	return signUpHandler{repo}
 }
 
-func NewAuthUpHandler(ctx context.Context, logger log.Logger, repo UserRepository) http.Handler {
-	return authHandler{repo, &logger}
+func NewAuthUpHandler(ctx context.Context, logger *log.Logger, repo UserRepository) http.Handler {
+	return authHandler{repo, logger}
 }
 
 func (h signUpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {

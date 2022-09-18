@@ -42,7 +42,7 @@ func TestGetTogglesSuccess(t *testing.T) {
 	request := httptest.NewRequest("GET", "/toggles", nil)
 	request.Header.Add("Authorization", fakeJwt)
 	repo := FakeRepo{Entries: toggleList}
-	handler := NewHandler(context.Background(), repo, *log.Default())
+	handler := NewHandler(context.Background(), repo, log.Default())
 
 	handler.ServeHTTP(recorder, request)
 
@@ -67,7 +67,7 @@ func TestPutTogglesSuccess(t *testing.T) {
 
 	repo := FakeRepo{Err: nil}
 
-	handler := NewHandler(context.Background(), repo, *log.Default())
+	handler := NewHandler(context.Background(), repo, log.Default())
 
 	handler.ServeHTTP(recorder, request)
 
@@ -87,7 +87,7 @@ func TestPutTogglesFail(t *testing.T) {
 
 	repo := FakeRepo{Err: nil}
 
-	h := NewHandler(context.Background(), repo, *log.Default())
+	h := NewHandler(context.Background(), repo, log.Default())
 
 	h.ServeHTTP(recorder, request)
 
@@ -114,7 +114,7 @@ func TestDeleteToggleSuccess(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	repo := FakeRepo{Err: nil, ToggleExist: true}
-	handler := NewHandler(context.Background(), repo, *log.Default())
+	handler := NewHandler(context.Background(), repo, log.Default())
 
 	handler.ServeHTTP(recorder, request)
 	result := recorder.Result()
@@ -135,7 +135,7 @@ func TestDeleteToggleFail(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	repo := FakeRepo{Err: nil, ToggleExist: true}
-	handler := NewHandler(context.Background(), repo, *log.Default())
+	handler := NewHandler(context.Background(), repo, log.Default())
 
 	handler.ServeHTTP(recorder, request)
 	result := recorder.Result()
@@ -164,7 +164,7 @@ func TestDeleteToggleFailWith404(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	repo := FakeRepo{Err: nil, ToggleExist: false}
-	handler := NewHandler(context.Background(), repo, *log.Default())
+	handler := NewHandler(context.Background(), repo, log.Default())
 
 	handler.ServeHTTP(recorder, request)
 	result := recorder.Result()
