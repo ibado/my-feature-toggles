@@ -25,7 +25,7 @@ func health(w http.ResponseWriter, req *http.Request) {
 }
 
 func createDBConnection() *sql.DB {
-	url := os.Getenv("DATABASE_URL")
+	url := os.Getenv("CCDB_URL")
 	db, err := sql.Open("postgres", url)
 	if err != nil {
 		log.Fatal(err)
