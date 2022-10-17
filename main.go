@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -29,6 +30,15 @@ func createDBConnection() *sql.DB {
 	if err != nil {
 		log.Fatal(err)
 		return nil
+	}
+
+	sql, err := ioutil.ReadFile("init.sql")
+	if err != nil {
+		logger.Fatalln("error reading sql init file", err)
+	}
+	_, err = db.Exec(string(sql))
+	if err != nil {
+		logger.Fatalln("error running init.sql", err)
 	}
 	return db
 }
