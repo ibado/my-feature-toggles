@@ -9,6 +9,9 @@ exitfn () {
 
 trap "exitfn" EXIT
 
+# export env vars
+export $(grep -v '^#' .env | xargs)
+
 run_server() {
     if [ $pid -ne -1 ]
     then
